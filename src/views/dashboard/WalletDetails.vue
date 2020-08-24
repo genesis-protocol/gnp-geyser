@@ -34,20 +34,20 @@
       </div>
     </div>
 
-    <div class="row total-token-div">
-      <div class="col">
-        <div class="row">
-          <div class="col text-left token-price">{{ $t("dashboard.wallet.apyTit") }}:</div>
-          <div class="col text-right token-price">{{ 0 }}%</div>
-        </div>
-        <hr class="total-hr">
-        <div class="row">
-          <div class="col text-left lock-tran-txt">
-            {{ $t("dashboard.wallet.apyTxt") }}
-          </div>
-        </div>
-      </div>
-    </div>
+<!--    <div class="row total-token-div">-->
+<!--      <div class="col">-->
+<!--        <div class="row">-->
+<!--          <div class="col text-left token-price">{{ $t("dashboard.wallet.apyTit") }}:</div>-->
+<!--          <div class="col text-right token-price">{{ 0 }}%</div>-->
+<!--        </div>-->
+<!--        <hr class="total-hr">-->
+<!--        <div class="row">-->
+<!--          <div class="col text-left lock-tran-txt">-->
+<!--            {{ $t("dashboard.wallet.apyTxt") }}-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
 
     <div class="row total-token-div">
       <div class="col">
@@ -68,7 +68,7 @@
       <div class="col">
         <div class="row">
           <div class="col text-left token-price">{{ $t("dashboard.wallet.arTit") }}:</div>
-          <div class="col text-right token-price">{{ 0.00 }} {{ $t("token.name") }}</div>
+          <div class="col text-right token-price">{{ currentRewards }} {{ $t("token.name") }}</div>
         </div>
         <hr class="total-hr">
         <div class="row">
@@ -97,16 +97,6 @@
   let opt = chainOpt.opt
   let querying = false
 
-  async function commonBalance(balanceFunc, addr) {
-    return await balanceFunc(addr)
-            .then(r=>{
-              if(r === null) {
-                return "0"
-              }
-              return r
-            })
-  }
-
   export default {
     name: "WalletDetails",
 
@@ -121,12 +111,22 @@
         }
 
         querying = true
+        let balanceInfo = await opt.allBalanceInfo()
 
-        this.getRoundInfo()
-        .then(r=>{})
-        .catch(e=>{return null})
-
+        this.ethBalance = balanceInfo.eth
+        this.tokenBalance = balanceInfo.gnp
+        this.uniBalance = balanceInfo.uni
         this.loading = false
+
+        let stakingInfo = await opt.stakingInfo()
+        let roundInfo = await opt.getGeyserRoundInfo()
+
+        this.currentRewards = new Decimal(stakingInfo[0])
+                                    .div(roundInfo.totalStaking)
+                                    .mul(roundInfo.rewardAmount)
+                                    .div(1e18)
+                                    .toDP(6, Decimal.ROUND_FLOOR)
+
         querying = false
       }, 1000)
     },
@@ -137,21 +137,10 @@
         ethBalance: "0",
         uniBalance: "0",
         lockedTOKEN: "0",
+        currentRewards: "0",
         loading: true,
       }
     },
-
-    computed: {
-      totalTOKEN() {
-        return new Decimal(this.tokenBalance).add(this.lockedTOKEN).toDP(6, Decimal.ROUND_DOWN)
-      }
-    },
-
-    methods: {
-      async getRoundInfo() {
-        await opt.getGeyserRoundInfo()
-      }
-    }
   }
 </script>
 

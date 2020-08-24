@@ -20,7 +20,7 @@ export default {
   },
   token: {
     name: "GNP",
-    uniName: "UWETHGNP-V2",
+    uniName: "UNI-V2",
     eth: "ETH",
     asset: "gnpETH",
     lockedToken: "Locked GNP",
@@ -37,9 +37,9 @@ export default {
       apyTit: "APY",
       apyTxt: "APY is estimated for a new deposit over the next 60 days, and does not account for gains or losses from holding liquidity tokens.",
       rmTit: "Reward Multiplier",
-      rmTxt: "Deposit liquidity tokens for 60 days to achieve a 3x reward multiplier.",
-      arTit: "Accrued Rewards",
-      arTxt: "Total rewards you have accrued till date. Larger your deposit and for longer, higher the accrual rate.",
+      rmTxt: "The current version only supports 1X rewards multiplier. we will dynamically adjust the reward multiples (1x - 3x) based on time in future version.",
+      arTit: "Current Rewards",
+      arTxt: "Your reward for the current round so far. The higher the proportion of deposits, the higher your reward.",
       uniswap: "GO TO UNISWAP",
     },
     toDoThings: {
@@ -47,13 +47,13 @@ export default {
     },
     deposit: {
       txt1: "Your Estimated Rewards",
-      txt2: " GNP / month",
+      txt2: " GNP",
       confirm: "Confirm or enter amount to deposit:",
       require: "You require ETH to be able to pay for gas.",
     },
     withdraw: {
       amount: "Amount to Withdraw: ",
-      claim: "Rewards Claimed: ",
+      claim: "Rewards: ",
       confirm: "Confirm or enter geyser round to withdraw:",
       unlock: "Withdraw: ",
       require: "You require ETH to be able to pay for gas.",
@@ -64,15 +64,17 @@ export default {
       totalDeposits: "Total Deposits: ",
       lockedRewards: "Locked Rewards: ",
       unlockedRewards: "Unlocked Rewards: ",
+      rewardsRate: "Rewards Rate: ",
       programDuration: "Program duration: ",
       rewardUnlockRate: "Reward unlock rate: ",
-      usd: " USD",
+      usd: " UNI-V2",
       token: " GNP",
       duration: " days left",
-      month: " GNP / month"
+      month: " GNP"
     }
   },
   action: {
+    enable: "ENABLE",
     deposit: "DEPOSIT",
     withdraw: "WITHDRAW",
     transfer: "TRANSFER",

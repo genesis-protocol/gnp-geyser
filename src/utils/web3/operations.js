@@ -3,9 +3,12 @@ import MYContract from "./erc20Token"
 import geyser from "./geyser"
 import Decimal from "decimal.js"
 
+import * as addrInfo from "./constant"
+
 import {onChainCall, offChainCall} from "./common";
 
 let myToken = null
+let uniToken = null
 let geyserContract = null
 let tokenDecimals = new Decimal(10).pow(MYContract.decimals)
 
@@ -13,18 +16,20 @@ function loadTOKEN() {
   if(myToken === null) {
     let web3Instance = ETHWallet.getWeb3Instance()
     myToken = new web3Instance.eth.Contract(MYContract.abi, MYContract.getAddress())
+    uniToken = new web3Instance.eth.Contract(MYContract.abi, MYContract.getUni())
   }
 }
 
 function loadGeyser() {
   if(geyserContract === null) {
     let web3Instance = ETHWallet.getWeb3Instance()
-    geyserContract = new web3Instance.eth.Contract(geyser.abi, geyser.address)  }
+    geyserContract = new web3Instance.eth.Contract(geyser.abi, geyser.address)
+  }
 }
 
 async function commonApprove(amount) {
   return await onChainCall(
-    myToken,
+    uniToken,
     ETHWallet.getAccount(),
     "approve",
     [geyser.address, amount],
@@ -49,9 +54,25 @@ async function commonERC20Balance(contract, address, outDecimal) {
   let result = await offChainCall(contract, address, "balanceOf", [address])
   if(result !== null) {
     result = new Decimal(result).div(tokenDecimals)
-    return outDecimal ? result:result.toDP(6, Decimal.ROUND_DOWN)
   } else {
-    return null
+    result = new Decimal(0)
+  }
+
+  return outDecimal ? result:result.toDP(6, Decimal.ROUND_DOWN).toString()
+}
+
+async function allBalanceInfo() {
+  loadTOKEN()
+  let address = ETHWallet.getAccount()
+
+  let gnp = await commonERC20Balance(myToken, address, false)
+  let uni = await commonERC20Balance(uniToken, address, false)
+  let eth = await ethBalance(false)
+
+  return {
+    gnp,
+    uni,
+    eth,
   }
 }
 
@@ -73,28 +94,36 @@ async function getGeyserRoundInfo(rIdx = null) {
  return await offChainCall(geyserContract, address, "rounds", [rIdx])
 }
 
-async function claim(round) {
+async function claim(rIdx = null) {
   if(!ETHWallet.isConnected()) {
     return null
+  }
+
+
+  if(rIdx === null) {
+    rIdx = await getNextRound()
+    rIdx = rIdx - 1
   }
 
   return await onChainCall(
     geyserContract,
     ETHWallet.getAccount(),
     "claimRewards",
-    [round],
+    [rIdx],
   )
 }
 
-async function ethBalance() {
+async function ethBalance(outDecimal) {
   let address = ETHWallet.getAccount()
-  return ETHWallet.getWeb3Instance().eth.getBalance(address)
-    .then(r=>{
-      return new Decimal(r).div(1e18).toDP(6, Decimal.ROUND_DOWN)
-    })
-    .catch(_=>{
-      return null
-    })
+  let result = await ETHWallet.getWeb3Instance().eth.getBalance(address)
+    .catch(e=>{return null})
+  if(result !== null) {
+    result = new Decimal(result).div(1e18)
+  } else {
+    result = result = new Decimal(0)
+  }
+
+  return outDecimal ? result:result.toDP(6, Decimal.ROUND_DOWN).toString()
 }
 
 async function load(tokenAddress) {
@@ -107,8 +136,8 @@ async function isStakingEnabled() {
     loadTOKEN()
   }
 
-  let spender = ETHWallet.getAccount()
-  let result = await offChainCall(myToken, address, "allowance", [spender, MYContract.getAddress()])
+  let owner = ETHWallet.getAccount()
+  let result = await offChainCall(uniToken, owner, "allowance", [owner, geyser.address])
 
   if(result !== null) {
     let amount = new Decimal(result).div(tokenDecimals)
@@ -123,18 +152,27 @@ async function staking(amount) {
     return null
   }
 
+  let stakeAmount = new Decimal(amount).mul(1e18)
+  Decimal.set({ toExpPos: 256 })
+  stakeAmount = stakeAmount.floor().toString()
   return await onChainCall(
     geyserContract,
     ETHWallet.getAccount(),
     "stakeIn",
-    [amount],
+    [stakeAmount],
   )
 }
 
-async function stakingInfo(round) {
+async function stakingInfo(rIdx = null) {
   loadGeyser()
+
+  if(rIdx === null) {
+    rIdx = await getNextRound()
+    rIdx = rIdx - 1
+  }
+
   let user = ETHWallet.getAccount()
-  return await offChainCall(myToken, user, "getStakingData", [user, round])
+  return await offChainCall(geyserContract, user, "getStakingData", [user, rIdx])
 }
 
 export default {
@@ -142,6 +180,7 @@ export default {
 
   ethBalance,
   commonERC20Balance,
+  allBalanceInfo,
 
   isStakingEnabled,
   enableStaking,

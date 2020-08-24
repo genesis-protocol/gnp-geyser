@@ -29,52 +29,52 @@
           <div class="col">
             {{ $t("dashboard.stats.totalRewards") }}
           </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.token") }}</b></div>
+          <div class="col text-right"><b>{{totalRewards}}{{ $t("dashboard.stats.token") }}</b></div>
         </div>
         <div class="row balance-item-2">
           <div class="col">
             {{ $t("dashboard.stats.totalDeposits") }}
           </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.usd") }}</b></div>
+          <div class="col text-right"><b>{{totalDeposits}} {{ $t("dashboard.stats.usd") }}</b></div>
         </div>
         <div class="row balance-item-1">
           <div class="col">
-            {{ $t("dashboard.stats.lockedRewards") }}
+            {{ $t("dashboard.stats.rewardsRate") }}
           </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.token") }}</b></div>
+          <div class="col text-right"><b>{{rewardsRate}} {{ $t("dashboard.stats.token") }} / {{ $t("dashboard.stats.usd") }}</b></div>
         </div>
-        <div class="row balance-item-1">
-          <div class="col">
-            {{ $t("dashboard.stats.unlockedRewards") }}
-          </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.token") }}</b></div>
-        </div>
-        <div class="row balance-item-2">
-          <div class="col">
-            {{ $t("dashboard.stats.programDuration") }}
-          </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.duration") }}</b></div>
-        </div>
-        <div class="row balance-item-1">
-          <div class="col">
-            {{ $t("dashboard.stats.rewardUnlockRate") }}
-          </div>
-          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.month") }}</b></div>
-        </div>
+<!--        <div class="row balance-item-1">-->
+<!--          <div class="col">-->
+<!--            {{ $t("dashboard.stats.unlockedRewards") }}-->
+<!--          </div>-->
+<!--          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.token") }}</b></div>-->
+<!--        </div>-->
+<!--        <div class="row balance-item-2">-->
+<!--          <div class="col">-->
+<!--            {{ $t("dashboard.stats.programDuration") }}-->
+<!--          </div>-->
+<!--          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.duration") }}</b></div>-->
+<!--        </div>-->
+<!--        <div class="row balance-item-1">-->
+<!--          <div class="col">-->
+<!--            {{ $t("dashboard.stats.rewardUnlockRate") }}-->
+<!--          </div>-->
+<!--          <div class="col text-right"><b>{{0}}{{ $t("dashboard.stats.month") }}</b></div>-->
+<!--        </div>-->
       </div>
     </div>
 
     <div class="row" v-show="toDoThingsViewDisabled">
       <div class="col">
         <input type="submit" class="btn btn-info btn-cancel" value="Cancel"
-               @click="cancel"
-        >
+               @click="cancel">
       </div>
     </div>
 
-    <deposit v-show="!depositDisabled" :hide-deposit="cancel"></deposit>
+    <deposit v-if="roundInfo" v-show="!depositDisabled" :hide-deposit="cancel" :round-info="roundInfo"></deposit>
 
-    <withdraw v-show="!withdrawDisabled" :hide-withdraw="cancel"></withdraw>
+    <withdraw v-if="roundInfo && stakingInfo" v-show="!withdrawDisabled" :hide-withdraw="cancel"
+              :round-info="roundInfo" :staking-info="stakingInfo"></withdraw>
 
     <a-modal
         title=""
@@ -93,7 +93,11 @@
 <script>
   import Deposit from "./Deposit"
   import Withdraw from "./Withdraw"
-  import 'ant-design-vue/dist/antd.css';
+  import 'ant-design-vue/dist/antd.css'
+  import chainOpt from "../../utils/web3/chainOperation"
+  import Decimal from "decimal.js"
+
+  let opt = chainOpt.opt
 
   export default {
     name: "ToDoThings",
@@ -104,7 +108,37 @@
         withdrawDisabled: true,
         comingSoonModalText: 'Coming Soon!',
         visible: false,
+
+        totalRewards: 0,
+        totalDeposits: 0,
+        rewardsRate: 0,
+        roundInfo: null,
+        stakingInfo: null,
       }
+    },
+
+    mounted() {
+      let querying = false
+      setInterval(async _=>{
+        if(querying) {
+          return
+        }
+        querying = true
+        this.stakingInfo = await opt.stakingInfo()
+                                    .catch(e=>{return null})
+
+        let roundInfo = await opt.getGeyserRoundInfo()
+                                .catch(e=>{
+                                  console.log(e)
+                                  return null
+                                })
+
+        this.totalRewards = new Decimal(roundInfo.rewardAmount).div(1e18).toString()
+        this.totalDeposits = new Decimal(roundInfo.totalStaking).div(1e18).floor().toString()
+        this.rewardsRate = new Decimal(roundInfo.rewardAmount).div(roundInfo.totalStaking).toDP(6, Decimal.ROUND_FLOOR)
+        this.roundInfo = roundInfo
+        querying = false
+      }, 3000)
     },
     methods: {
       handleCancel(e) {
@@ -115,6 +149,21 @@
         this.depositDisabled = false
       },
       viewWithdraw() {
+        if(!this.roundInfo) {
+          alert("account data not loaded!")
+          return
+        }
+
+        if(!this.stakingInfo) {
+          alert("you are not stake any token!")
+          return
+        }
+
+        if(this.stakingInfo[1]) {
+          alert("You have withdrawn the rewards and the deposit already!")
+          return
+        }
+
         this.toDoThingsViewDisabled = true
         this.withdrawDisabled = false
       },

@@ -9,16 +9,16 @@
       <div class="row">
         <div class="col">
           <p class="claim-tit">{{ $t("action.withdraw") }}</p>
-          <p class="claim-txt">{{ $t("dashboard.withdraw.amount") }}<b>{{ 0 }} ${{$t("token.uniName") }}</b></p>
-          <p class="claim-txt">{{ $t("dashboard.withdraw.claim") }}<b>{{ 0 }} {{$t("token.name") }}</b></p>
+          <p class="claim-txt">{{ $t("dashboard.withdraw.amount") }}<b>{{ stakingAmount }} ${{$t("token.uniName") }}</b></p>
+          <p class="claim-txt">{{ $t("dashboard.withdraw.claim") }}<b>{{ gnpRewards }} {{$t("token.name") }}</b></p>
         </div>
       </div>
-      <div class="row">
-        <div class="col">
-          <p class="claim-input-tix">{{ $t("dashboard.withdraw.confirm") }}</p>
-          <input type="text" v-model="claimAmount" placeholder="0.00" class="claim-input">
-        </div>
-      </div>
+<!--      <div class="row">-->
+<!--        <div class="col">-->
+<!--          <p class="claim-input-tix">{{ $t("dashboard.withdraw.confirm") }}</p>-->
+<!--          <input type="text" placeholder="0.00" class="claim-input">-->
+<!--        </div>-->
+<!--      </div>-->
       <div class="row">
         <div class="col text-left notes-txt">
           {{ $t("dashboard.withdraw.require") }}
@@ -51,11 +51,12 @@ import chainOpt from "../../utils/web3/chainOperation";
 import Loading from 'vue-loading-overlay';
 // Import stylesheet
 import 'vue-loading-overlay/dist/vue-loading.css';
+import Decimal from "decimal.js";
 
 let opt = chainOpt.opt
 export default {
   name: "Withdraw",
-  props: ["hideWithdraw"],
+  props: ["hideWithdraw", "roundInfo", "stakingInfo"],
 
   components: {
     Loading
@@ -68,11 +69,26 @@ export default {
     }
   },
 
+  computed: {
+    stakingAmount() {
+      return new Decimal(this.stakingInfo[0]).div(1e18).toDP(6, Decimal.ROUND_FLOOR).toString()
+    },
+
+
+    gnpRewards() {
+      return new Decimal(this.stakingInfo[0])
+          .div(this.roundInfo.totalStaking)
+          .mul(this.roundInfo.rewardAmount)
+          .div(1e18)
+          .toDP(6, Decimal.ROUND_FLOOR)
+    }
+  },
+
   methods: {
-    async claim(round) {
+    async claim() {
       this.loading = false
       this.loading = true
-      await opt.claim(round)
+      await opt.claim()
       this.loading = false
 
       if(typeof this.hideWithdraw === "function") {

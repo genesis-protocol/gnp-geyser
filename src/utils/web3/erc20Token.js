@@ -222,19 +222,26 @@ let abi = [
 ]
 
 let address = ""
+let uniAddress = ""
 let decimals = 18
 
-function setTokenAddress(tokenAddress) {
-  address = tokenAddress
+function setTokenAddress(token, uni) {
+  // address = token
+  // uniAddress = uni
 }
 
 function getAddress() {
   return address
 }
 
+function getUni() {
+  return uniAddress
+}
+
 export default {
   abi,
   decimals,
   getAddress,
+  getUni,
   setTokenAddress,
 }

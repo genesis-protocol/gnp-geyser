@@ -10,13 +10,13 @@
         <div class="col">
           <p class="staking-tit">{{ $t("action.deposit") }}</p>
           <p class="staking-txt">{{ $t("dashboard.deposit.txt1") }}</p>
-          <p class="staking-txt"><b>{{ 0.00 }}{{ $t("dashboard.deposit.txt2") }}</b></p>
+          <p class="staking-txt"><b>{{ eRewards }}{{ $t("dashboard.deposit.txt2") }}</b></p>
         </div>
       </div>
       <div class="row">
         <div class="col">
           <p class="staking-input-tit">{{ $t("dashboard.deposit.confirm") }}</p>
-          <input type="text" v-model="gnpUniAmount" placeholder="0.00" class="staking-input">
+          <input type="text" v-model="gnpUniAmount" placeholder="0" class="staking-input">
         </div>
       </div>
       <div class="row">
@@ -29,7 +29,7 @@
           <input v-show="enabled" type="submit" class="btn btn-info btn-staking-now" :value="$t('action.deposit')"
                  @click="staking"
           >
-          <input v-show="!enabled" type="submit" class="btn btn-info btn-staking-now" :value="$t('action.deposit')"
+          <input v-show="!enabled" type="submit" class="btn btn-info btn-staking-now" :value="$t('action.enable')"
                  @click="enable"
           >
         </div>
@@ -45,6 +45,7 @@
 <script>
 import chainOpt from "../../utils/web3/chainOperation";
 import $ from "jquery";
+import Decimal from "decimal.js"
 
 // Import component
 import Loading from 'vue-loading-overlay';
@@ -57,7 +58,7 @@ export default {
   components:{
     Loading
   },
-  props: ["hideStaking"],
+  props: ["hideStaking", "roundInfo"],
   data() {
     return {
       gnpUniAmount: "0",
@@ -77,7 +78,26 @@ export default {
     },
   },
 
+  computed: {
+    eRewards() {
+      try {
+        let amount = parseFloat(this.gnpUniAmount)
+        if(!amount || isNaN(amount)) {
+          return 0
+        }
+
+        let stakeAmount = new Decimal(this.gnpUniAmount).mul(1e18)
+        let totalAmount = Decimal(this.roundInfo.totalStaking).add(stakeAmount)
+        return stakeAmount.div(totalAmount).mul(this.roundInfo.rewardAmount).div(1e18).toDP(6, Decimal.ROUND_FLOOR)
+      } catch (e) {
+        return 0
+      }
+    }
+  },
+
   mounted() {
+    $(this.$el).find(".staking-input").attr("disabled", "disabled")
+
     setTimeout(_=>{
       opt.isStakingEnabled()
               .then(r=>{
@@ -87,12 +107,27 @@ export default {
               })
               .catch(e=>{})
     }, 500)
-
   },
 
   methods: {
+    async loopCheckEnabled() {
+      this.enabled = await opt.isStakingEnabled()
+          .then(r=>{
+            if(r) {
+              return true
+            }
+          }).catch(e=>{return false})
+
+      if(this.enabled) {
+        return
+      }
+
+      setTimeout(this.loopCheckEnabled, 15000)
+    },
+
     async enable() {
       this.loading = true
+
       let enabled = await opt.isStakingEnabled()
       if(enabled) {
         this.enabled = true
@@ -100,9 +135,15 @@ export default {
         return
       }
 
-      let _ = await opt.enableStaking()
-      this.enabled = false
+      enabled = await opt.enableStaking()
+                      .catch(e=>{return null})
+
       this.loading = false
+      if(enabled === null) {
+        return
+      }
+      await this.loopCheckEnabled()
+
     },
 
     async staking() {
